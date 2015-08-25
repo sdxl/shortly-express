@@ -36,31 +36,40 @@ function(req,res){
 });
 
 //actual logging in
-app.post('/login',
-function(req,res){
+app.post('/login', function(req, res){
+  //grab the username from user input
+  //grab the password from user input
+
+  //check to see if the username is in our database
+    //check to see if the password matches the database one
+        //if yes, allow entry
+        //if no sent them back to log-in page
+
 
   // //req.body will give access to the username/password parameters
   var name = req.body.username;
-
   var enteredPassword = req.body.password;
-  var hash;
-  new User({ username: name}).fetch().then(function(model) {
+  var allowed = false;
+  new User({ username: name}).fetch().then(function(model){
     if (model) {
         hash = model.get('password')
-    })
-  }
-    bcrypt.compare(enteredPassword, hash, function(err, res){
-      if(err){
-        console.log("Wrong password!")
-      }else{
-        console.log("Yay, correct password!")
-        }
-    })
+        allowed = bcrypt.compareSync(enteredPassword, hash);
+      if(allowed){
+        res.render('index');
+      }
+      else{
+        res.render('login');
+      }
+     }
+  });
+
+});
+
   //   }else{
   //   res.send("user doesn't exist!");
   //   } 
   // });
-});
+
 
 //getting sign-up page;
 app.get('/signup', 

@@ -10,7 +10,7 @@ var User = db.Model.extend({
       var hashed = bcrypt.hashSync(model.get('password'));
       model.set('password', hashed);
     });
-  }
+  }, 
 });
 
 module.exports = User;
