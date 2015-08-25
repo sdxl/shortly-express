@@ -2,7 +2,7 @@ var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
-
+var bcrypt = require('bcrypt-nodejs');
 
 var db = require('./app/config');
 var Users = require('./app/collections/users');
@@ -23,15 +23,82 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 
 
+//change the initial arrival page to always be a log-in page;
 app.get('/', 
 function(req, res) {
-  res.render('index');
+  res.render('login'); // momentarily changing to index; change back after
 });
+
+//getting log-in page
+app.get('/login', 
+function(req,res){
+  res.render('login');
+});
+
+//actual logging in
+app.post('/login',
+function(req,res){
+
+  // //req.body will give access to the username/password parameters
+  var name = req.body.username;
+
+  var enteredPassword = req.body.password;
+  var hash;
+  new User({ username: name}).fetch().then(function(model) {
+    if (model) {
+        hash = model.get('password')
+    })
+  }
+    bcrypt.compare(enteredPassword, hash, function(err, res){
+      if(err){
+        console.log("Wrong password!")
+      }else{
+        console.log("Yay, correct password!")
+        }
+    })
+  //   }else{
+  //   res.send("user doesn't exist!");
+  //   } 
+  // });
+});
+
+//getting sign-up page;
+app.get('/signup', 
+function(req,res){
+  res.render('signup');
+});
+
+//signing up a new user
+app.post('/signup',
+function(req,res){
+  var name = req.body.username;
+
+  var password = req.body.password;
+  
+  new User({ username: name }).fetch().then(function(found) {
+    if (found) {
+      res.send('Username taken, please choose another name');
+    } else {
+        var user = new User({
+          username: name,
+          password: password,
+        });
+
+        user.save().then(function(newUser) {
+          Users.add(newUser);
+          res.render('index');
+        });
+      };
+  });
+})
+
+
 
 app.get('/create', 
 function(req, res) {
   res.render('index');
 });
+
 
 app.get('/links', 
 function(req, res) {
@@ -40,6 +107,7 @@ function(req, res) {
   });
 });
 
+//code for sign procedure should mimic this
 app.post('/links', 
 function(req, res) {
   var uri = req.body.url;
