@@ -2,7 +2,7 @@ var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
-var bcrypt = require('bcrypt-nodejs');
+var session = require('express-session');
 
 var db = require('./app/config');
 var Users = require('./app/collections/users');
@@ -21,103 +21,31 @@ app.use(bodyParser.json());
 // Parse forms (signup/login)
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
+//start using sessions
+app.use(session({
+  secret: 'iamnotadickwad',
+  saveUninitialized: false,
+  resave: false
+}));
 
-
-//change the initial arrival page to always be a log-in page;
-app.get('/', 
-function(req, res) {
-  res.render('login'); // momentarily changing to index; change back after
-});
-
-//getting log-in page
-app.get('/login', 
-function(req,res){
-  res.render('login');
-});
-
-//actual logging in
-app.post('/login', function(req, res){
-  //grab the username from user input
-  //grab the password from user input
-
-  //check to see if the username is in our database
-    //check to see if the password matches the database one
-        //if yes, allow entry
-        //if no sent them back to log-in page
-
-
-  // //req.body will give access to the username/password parameters
-  var name = req.body.username;
-  var enteredPassword = req.body.password;
-  var allowed = false;
-  new User({ username: name}).fetch().then(function(model){
-    if (model) {
-        hash = model.get('password')
-        allowed = bcrypt.compareSync(enteredPassword, hash);
-      if(allowed){
-        res.render('index');
-      }
-      else{
-        res.render('login');
-      }
-     }
-  });
-
-});
-
-  //   }else{
-  //   res.send("user doesn't exist!");
-  //   } 
-  // });
-
-
-//getting sign-up page;
-app.get('/signup', 
-function(req,res){
-  res.render('signup');
-});
-
-//signing up a new user
-app.post('/signup',
-function(req,res){
-  var name = req.body.username;
-
-  var password = req.body.password;
-  
-  new User({ username: name }).fetch().then(function(found) {
-    if (found) {
-      res.send('Username taken, please choose another name');
-    } else {
-        var user = new User({
-          username: name,
-          password: password,
-        });
-
-        user.save().then(function(newUser) {
-          Users.add(newUser);
-          res.render('index');
-        });
-      };
-  });
-})
-
-
-
-app.get('/create', 
+app.get('/', util.checkUser,
 function(req, res) {
   res.render('index');
 });
 
+app.get('/create', util.checkUser, 
+function(req, res) {
+  res.render('index');
+});
 
-app.get('/links', 
+app.get('/links', util.checkUser, 
 function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
 });
 
-//code for sign procedure should mimic this
-app.post('/links', 
+app.post('/links', util.checkUser, 
 function(req, res) {
   var uri = req.body.url;
 
@@ -154,9 +82,60 @@ function(req, res) {
 /************************************************************/
 // Write your authentication routes here
 /************************************************************/
+app.get('/login', function(req, res){
+  res.render('login');
+});
 
+app.post('/login', function(req, res){
+  var username = req.body.username;
+  var password = req.body.password;
 
+  new User({username: username}).fetch().then(function(user){
+    if(!user){
+      res.redirect('/login')
+    }else{
+      user.comparePassword(password, function(bool){
+        if(bool){
+          req.session.loggedIn = 'loggedin';
+          res.redirect('/')
+        }else{
+          res.redirect('/login');
+        }
+      });
+    }
+  })
+});
 
+app.get('/signup', function(req, res){
+  res.render('signup');
+});
+
+app.post('/signup', function(req, res){
+  var username = req.body.username;
+  var password = req.body.password;
+  
+ new User({ username: username }).fetch().then(function(found) {
+    if (found) {
+      res.redirect('/signup');
+    } else {
+        var newUser = new User({
+          username: username,
+          password: password,
+        });
+
+        newUser.save().then(function(newUser) {
+          Users.add(newUser);
+          res.redirect('/login');
+        });
+      }
+    });
+  });
+
+app.get('/logout', function(req, res){
+  //do stuff;
+  req.session.destroy();
+  res.redirect('/login');
+})
 /************************************************************/
 // Handle the wildcard route last - if all other routes fail
 // assume the route is a short code and try and handle it here.
